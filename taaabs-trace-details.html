@@ -1,0 +1,341 @@
+<!-- iron dependencies -->
+<link rel="import" href="../iron-collapse/iron-collapse.html">
+<link rel="import" href="../iron-icon/iron-icon.html">
+<link rel="import" href="../iron-icons/iron-icons.html">
+<!-- google dependencies -->
+<link rel="import" href="../google-chart/google-chart.html">
+<link rel="import" href="../app-localize-behavior/app-localize-behavior.html">
+<!-- taaabs dependencies -->
+<link rel="import" href="../taaabs-themes/taaabs-theme.html">
+<link rel="import" href="../taaabs-time-utilities/taaabs-time-utilities.html">
+
+<dom-module id="taaabs-trace-details">
+  <template>
+    <style include="taaabs-theme"></style>
+    <style>
+      :host {
+        display: block;
+        width: 100%;
+      }
+      :host #pieChart{
+        background-color: var(--paper-grey-50);
+      }
+      :host #collapse{
+        border: solid 1px var(--paper-grey-100);
+        -webkit-transition: border 0.25s ease-in-out;
+        transition: border 0.25s ease-in-out;
+      }
+      :host #collapse.collapse-hover{
+        border: solid 1px var(--paper-grey-200);
+      }
+    </style>
+
+    <div class="fit-width flex-horizontal"  style="line-height: 30px">
+      <div class="flexchild">
+        <span style="font-size: 18px">[[_traceId]]</span> <span>[[_traceLabel]]</span>
+      </div>
+      <div class="flex-reversed">
+        <a href="[[traceUrl]]" target="_blank">[[traceUrl]]</a>
+      </div>
+    </div>
+    <div class="fit-width">
+      <i>[[_traceDescription]]</i>
+    </div>
+    <iron-collapse id="collapse" opened>
+      <div class="fit-width" style="padding-bottom: 5px">
+        <div class="flex-horizontal fit-width flex-equal-justified">
+          <div class="flexchild flex-vertical flex-equal-around-justified" style="padding-right: 10px;">
+            <center>
+              <h3>[[_obselCount]] total obsels</h3>
+              <div style="width:1px; height: 20px; border: solid 1px black"></div>
+              <p style="margin: 2px">over</p>
+              <div style="width:1px; height: 20px; border: solid 1px black"></div>
+              <h4>[[_duration]]</h4>
+              <div style="width: 90%; height:1px; border:solid 1px black"></div>
+              <div class="fit-width flex-horizontal">
+                <div>
+                  <h4>[[_minTime]]</h4>
+                </div>
+                <div class="fit-width flexchild"></div>
+                <div>
+                  <h4>[[_maxTime]]</h4>
+                </div>
+              </div>
+            </center>
+          </div>
+          <div style="background-color: white; border: solid 1px grey">
+            <iron-icon on-click="_onRefreshClick" icon="icons:refresh" style="float:right" class="clickable"></iron-icon>
+            <google-chart type='pie' id="pieChart"
+              options='{"title": "Distribution of obsel types"}'>
+            </google-chart>
+          </div>
+        </div>
+      </div>
+    </iron-collapse>
+    <div id="toggle-button" class="fit-width flex-horizontal flex-equal-around-justified clickable hoverable bgLightGrey100 bgLightGrey100H" style="padding:4px">
+      <span class="">[[_toggleButtonMessage]]</span>
+    </div>
+
+  </template>
+
+  <script>
+    Polymer({
+      is: 'taaabs-trace-details',
+      properties: {
+        /**
+         * The trace URL.
+         *
+         * @attribute traceUrl
+         * @type String
+         */
+        traceUrl: {
+          type: String,
+          notify: true,
+          value: "",
+        },
+
+        /**
+         * The trace object.
+         *
+         * @attribute _trace
+         * @type Object
+         */
+        _trace: {
+          type: Object,
+          notify: true,
+          value: null,
+          observer: '_onTraceChange'
+        },
+
+        /**
+         * The trace ID.
+         *
+         * @attribute _traceId
+         * @type String
+         */
+        _traceId: {
+          type: String,
+          notify: true,
+          value: ""
+        },
+
+        /**
+         * The trace label.
+         *
+         * @attribute _traceLabel
+         * @type String
+         */
+        _traceLabel: {
+          type: String,
+          notify: true,
+          value: ""
+        },
+
+        /**
+         * The trace description.
+         *
+         * @attribute _traceDescription
+         * @type String
+         */
+        _traceDescription: {
+          type: String,
+          notify: true,
+          value: ""
+        },
+
+        /**
+         * The number of obsels in the trace.
+         *
+         * @attribute _obselCount
+         * @type Number
+         */
+        _obselCount: {
+          type: Number,
+          notify: true,
+          value: 0
+        },
+
+        /**
+         * The min time of the trace.
+         *
+         * @attribute _minTime
+         * @type String
+         */
+        _minTime: {
+          type: String,
+          notify: true,
+          value: 0
+        },
+
+        /**
+         * The max time of the trace.
+         *
+         * @attribute _maxTime
+         * @type String
+         */
+        _maxTime: {
+          type: String,
+          notify: true,
+          value: 0
+        },
+
+        /**
+         * The duration of the trace.
+         *
+         * @attribute _duration
+         * @type String
+         */
+        _duration: {
+          type: String,
+          notify: true,
+          value: null
+        },
+
+        /**
+         * Localization.
+         * fr, en.
+         *
+         * @attribute language
+         * @type String
+         */
+        language: {
+          type: String,
+          notify: true
+        },
+
+        _stats: {
+          type: Object,
+          notify: true,
+          value: null
+        },
+
+        /**
+         * Set to true if the taaabs-base-overview must work with a `taaabs-resource-loader`. False otherwise.
+         *
+         * @attribute taaabsCentralLoading
+         * @type Boolean
+         */
+        taaabsCentralLoading: {
+          type: Boolean,
+          notify: true,
+          value: false
+        },
+
+        /**
+         * A taaabs-time-utilities.
+         *
+         * @attribute _ttu
+         * @type Object
+         */
+        _ttu: {
+          type: Object,
+          notify: true,
+          value: function() {
+            return new TaaabsTimeUtilities();
+          }
+        },
+
+        _toggleButtonMessage: {
+          type: String,
+          notify: true,
+          value: 'hide'
+        }
+      },
+
+      behaviors: [
+        Polymer.AppLocalizeBehavior
+      ],
+
+      listeners: {
+        'toggle-button.mouseenter': '_onToggleButtonEnter',
+        'toggle-button.mouseleave': '_onToggleButtonLeave',
+        'toggle-button.click': '_onToggleCollapseClick'
+      },
+
+      ready: function() {},
+
+      attached: function(){
+        // Load i18n json.
+        this.loadResources(this.resolveUrl('./languages/locales.json'));
+      },
+
+      refresh: function() {
+        // RESET ALL THE THINGS !!
+        this.set('_trace', null);
+        // If we use a resoure-loader, well, we let it load the resources then.
+        if (this.taaabsCentralLoading)
+          this.fire('GET_RESOURCE', {
+            url: this.traceUrl,
+            obj: "_trace"
+          });
+        // Otherwise, set _base with a new Samotrace.Base.
+        else
+          this.set('_trace', new Samotraces.Ktbs.Trace(this.traceUrl));
+      },
+
+      /** ----------------------------------------------------------------------
+      // MARK: Functions: collapse
+      **/
+
+      _onToggleButtonEnter: function(){
+        this.$.collapse.classList.add('collapse-hover');
+      },
+
+      _onToggleButtonLeave: function(){
+        this.$.collapse.classList.remove('collapse-hover');
+      },
+
+      _onToggleCollapseClick: function(){
+        this.$.collapse.toggle();
+        var msg = (this.$.collapse.opened) ?  this.localize('hide') : this.localize('show');
+        this.set('_toggleButtonMessage', msg);
+      },
+
+      _onRefreshClick: function(){
+        this.$.pieChart.set('data', this.$.pieChart.data);
+        this.$.pieChart.redraw();
+      },
+
+      _onTraceChange: function() {
+        if (this._trace) {
+          this._trace.get_stats().then(function(stats) {
+            // We set the stats.
+            this.set('_stats', stats);
+            // And the displays
+            var begin_date = new Date(stats['stats:minTime']);
+            var end_date = new Date(stats['stats:maxTime']);
+            this.set('_beginTime', stats['stats:minTime']);
+            this.set('_endTime', stats['stats:maxTime']);
+            this.set('_minTime', begin_date.toUTCString());
+            this.set('_maxTime', end_date.toUTCString());
+            this.set('_duration', this._ttu.get_human_readable_duration(begin_date, end_date));
+            this.set('_obselCount', stats['stats:obselCount']);
+            this.set('_traceId', this._trace.attributes['@id'].split('/')[this._trace.attributes['@id'].split('/').length - 2]);
+            this.set('_traceLabel', this._trace.attributes.label);
+            this.set('_traceDescription', this._trace.attributes['http://www.w3.org/2000/01/rdf-schema#comment']);
+            // FIll the pieChart
+            this._fill_pie_raw_data(stats);
+            // Set up the timelines
+            //this._setTimeline();
+          }.bind(this)).catch(function(err) {
+            console.log(err);
+          });
+        }
+      },
+
+      /** ----------------------------------------------------------------------
+      // MARK: Functions: Pie chart
+      **/
+
+      _fill_pie_raw_data: function(stats) {
+        var counts = stats["stats:obselCountPerType"];
+        var pcrd = [['Type', 'Count']];
+        for (var i = 0; i < counts.length; i++) {
+          pcrd.push([counts[i]["stats:hasObselType"], counts[i]["stats:nb"]]);
+        }
+        this.$.pieChart.set('data', pcrd);
+        this.$.pieChart.redraw();
+      }
+    });
+  </script>
+</dom-module>
